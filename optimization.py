@@ -35,12 +35,12 @@ def bisection(h, M, weights=[]):
     # average time to find the optimal: 0.012535839796066284 s
 
     # parameters and equations
-    o=100
-    p=3
-    u=0.7
-    eta1=((u*p)**(1.0/3))/o
-    ki=10**-26   
-    eta2=u*p/10**-10
+    o=100 # number of cycles needed to process one bit of data
+    p=3 # AP transmit power when broadcasting RF energy
+    u=0.7 #energy harvesting efficiency
+    eta1=((u*p)**(1.0/3))/o # by definition
+    ki=10**-26   # computation energy efficiency coefficient
+    eta2=u*p/10**-10 #
     B=2*10**6
     Vu=1.1
     epsilon=B/(Vu*np.log(2))
