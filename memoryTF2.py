@@ -35,6 +35,7 @@ class MemoryDNN:
         self.memory_size = memory_size
 
         # store all binary actions
+        # only used if we are using KNN mode
         self.enumerate_actions = []
 
         # stored # memory entry
@@ -63,8 +64,9 @@ class MemoryDNN:
         # replace the old memory with new memory
         idx = self.memory_counter % self.memory_size
         self.memory[idx, :] = np.hstack((h, m))
-
+        print("memory:",self.memory[idx,:])
         self.memory_counter += 1
+        print("memory_counter:",self.memory_counter)
 
     def encode(self, h, m):
         # encoding the entry
@@ -94,11 +96,13 @@ class MemoryDNN:
         assert (self.cost > 0)
         self.cost_his.append(self.cost)
 
-    def decode(self, h, k=1, mode='OP'):
+    def decode(self, h, k, mode='OP'):
         # to have batch dimension when feed into tf placeholder
+        print("current h:", h)
         h = h[np.newaxis, :]
-
+        print("current h:",h)
         m_pred = self.model.predict(h)
+        print("current m prediction:",m_pred)
 
         if mode is 'OP':
             return self.knm(m_pred[0], k)
@@ -114,7 +118,7 @@ class MemoryDNN:
         m_list.append(1 * (m > 0.5))
 
         if k > 1:
-            # generate the remaining K-1 binary ofﬂoading decisions with respect to equation (9)
+            # generate the remaining K-1 binary offloading decisions with respect to equation (9)
             m_abs = abs(m - 0.5)
             idx_list = np.argsort(m_abs)[:k - 1]
             for i in range(k - 1):

@@ -26,7 +26,7 @@
 #  #################################################################
 
 
-import scipy.io as sio  # import scipy.io for .mat file I/
+import scipy.io as sio  # import scipy.io for .mat file I
 import numpy as np  # import numpy
 
 # for tensorflow2
@@ -70,9 +70,9 @@ if __name__ == "__main__":
         Adaptive K is implemented. K = max(K, K_his[-memory_size])
     '''
 
-    N = 10  # number of users
+    N = 5  # number of users
     n = 30000  # number of time frames
-    K = N  # initialize K = N
+    K = 1  # initialize K = N
     decoder_mode = 'OP'  # the quantization mode could be 'OP' (Order-preserving) or 'KNN'
     Memory = 4096  # capacity of memory structure
     Delta = 32  # Update interval for adaptive K
@@ -81,8 +81,7 @@ if __name__ == "__main__":
         '#user = %d, #channel=%d, K=%d, decoder = %s, Memory = %d, Delta = %d' % (N, n, K, decoder_mode, Memory, Delta))
     # Load data
     channel = sio.loadmat('./data/data_%d' % N)['input_h']
-    rate = sio.loadmat('./data/data_%d' % N)[
-        'output_obj']  # this rate is only used to plot figures; never used to train DROO.
+    rate = sio.loadmat('./data/data_%d' % N)['output_obj']  # this rate is only used to plot figures; never used to train DROO.
 
     # increase h to close to 1 for better training; it is a trick widely adopted in deep learning
     channel = channel * 1000000
@@ -122,19 +121,24 @@ if __name__ == "__main__":
         if i < n - num_test:
             # training
             i_idx = i % split_idx
+
         else:
             # test
             i_idx = i - n + num_test + split_idx
 
         h = channel[i_idx, :]
-
+        print('h:',h)
         # the action selection must be either 'OP' or 'KNN'
         m_list = mem.decode(h, K, decoder_mode)
+        print("result of m_list that is being decoded:\n",m_list)
 
         r_list = []
         for m in m_list:
             r_list.append(bisection(h / 1000000, m)[0])
-
+            print("bisection:",bisection(h/1000000,m))
+        print("r_list:",r_list)
+        print("largest reward:", m_list)
+        print("largest reward:", m_list[np.argmax(r_list)])
         # encode the mode with largest reward
         mem.encode(h, m_list[np.argmax(r_list)])
         # the main code for DROO training ends here
