@@ -9,6 +9,10 @@ import scipy.io as sio  # import scipy.io for .mat file
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+from gym.wrappers import FlattenObservation
+from gym.spaces.utils import unflatten
+from gym.spaces.utils import flatten_space
+
 
 def knm(self, m, k=1):
     # return k order-preserving binary actions
@@ -60,13 +64,12 @@ if __name__ == '__main__':
     Memory = 4096  # capacity of memory structure
     Delta = 32  # Update interval for adaptive K
 
-    observations = {'input_h': input_h[0],  # State variable
-                    'binary_matrix': np.zeros((N,S+1)),  # State of the offloading decisions
-                    'server_load' : np.zeros(S)
-                    }
-    print(observations['input_h'])
-    print(observations['binary_matrix']) # offloading decisions
-    print(observations['server_load']) # server load S servers
+    # observations = {'input_h': input_h[0],  # State variable
+    #                 'binary_matrix': np.zeros((N,S+1)),  # State of the offloading decisions
+    #                 'server_load' : np.zeros(S)
+    #                 }
+    observations =['input_h', 'binary_matrix', 'server_load']
+
     scores = []
     eps_history = []
     actions = {}
@@ -88,10 +91,14 @@ if __name__ == '__main__':
     episodes = 30000
     mem_size = 1000000
     batch_size = 64
-    agent = Agent(gamma=gamma, epsilon=epsilon, lr=lr, input_dims=env.observation_space.shape,
-                  n_actions=env.action_space.n, mem_size=mem_size, batch_size=batch_size,
+    print('action space:',env.action_space.n)
+    agent = Agent(gamma=gamma,
+                  epsilon=epsilon,
+                  lr=lr,
+                  input_dims=env.observation_space.shape,
+                  n_actions=env.action_space.n,
+                  mem_size=mem_size, batch_size=batch_size,
                   epsilon_end=epsilon_end)
-    k_idx_his = []
     for i in range(episodes):
 
         if i % (episodes // 10) == 0:
@@ -99,30 +106,17 @@ if __name__ == '__main__':
         '''
         For K
         '''
-        if i > 0 and i % Delta == 0:
-            # index counts from 0
-            if Delta > 1:
-                max_k = max(k_idx_his[-Delta:-1]) + 1
-            else:
-                max_k = k_idx_his[-1] + 1
-            K = min(max_k + 1, N)
-        # training
-        i_idx = i
-        h = input_h[i_idx, :]
-        print("h0:",h)
-        m_list = agent.decode(h, K, decoder_mode)
-        print("m_list:",m_list)
-        r_list = []
-        for m in m_list:
-            r_list.append(bisection(h / 1000000, m)[0])
-            print("bisection:",bisection(h/1000000,m))
         done = False
         score = 0
-        observation = env.reset(h)
+        print(input_h[i])
+        print(input_h[i][0].dtype)
+        observation = env.reset(input_h[i],N,S)
+        print(observation)
         while not done:
             action = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
             score += reward
+            print(observation)
             agent.store_transition(observation, action, reward, observation_, done)
             agent.learn()
             observation = observation_
@@ -134,6 +128,6 @@ if __name__ == '__main__':
         print('episode ', i, 'score %.1f' % score,
               'average score %.1f' % avg_score,
               'epsilon %.2f' % agent.epsilon)
-    filename = 'lunar_lander.png'
+#    filename = 'lunar_lander.png'
     x = [i + 1 for i in range(len(scores))]
     # plotLearningCurve(x, scores, eps_history, filename)

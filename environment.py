@@ -8,7 +8,6 @@ class Env(Env):
         self.observations = observations
         self.action_space = action_space
         self.observation_space = observation_space
-        self.log = ''
 
 
     def step(self,action):
@@ -19,9 +18,13 @@ class Env(Env):
         info = 0
         return self.observations,reward,done,info
 
-    def reset(self,input): # When we reset our state, we get a next set of input_h.
-        self.observations['input_h'
-        ] = input
+    def reset(self,input,N,S): # When we reset our state, we get a next set of input_h.
+        self.observations = {
+            'input_h': input,
+            'binary_matrix': np.zeros((N,S+1)),
+            'server_load' : np.zeros(S+1)
+
+        }
         return self.observations
 
 
