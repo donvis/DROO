@@ -1,70 +1,104 @@
-import abc
-import tensorflow as tf
+import gymnasium as gym
+from gymnasium.spaces import Box, Dict
 import numpy as np
-
-from tf_agents.environments import py_environment
-from tf_agents.environments import tf_environment
-from tf_agents.environments import tf_py_environment
-from tf_agents.environments import utils
-from tf_agents.specs import array_spec
-from tf_agents.environments import wrappers
-from tf_agents.environments import suite_gym
-from tf_agents.trajectories import time_step as ts
+import random
 
 
-# We want to train an agent to learn to maximize the computation rate of a device, while reducing the variance of load of the available servers.
-# At each episode, the agent will receive a new input_h, which is a vector of length N, where N is the number of users.
-# The agent will choose to perform the task locally or offload it to a server.
-# Goal: Maximize computation rate of device, reduce variance of load of the available servers.
-
-# An environment can look like this:
-# 1. Actions: 2 actions: 0: perform task locally, 1: offload task to a server.
-# 2. Observations: Current load of available servers
-
-
-class Env(py_environment.PyEnvironment):
-
+class CustomEnv(gym.Env):
     def __init__(self):
-        # Agent only performs two action,
-        # Action 0: choose to perform task locally
-        # Action 1: choose to offload task to a server.
-        self._action_spec = array_spec.BoundedArraySpec(
-            shape=(), dtype=np.int32, minimum=0, maximum=1, name='action')
-        self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(1,), dtype=np.int32, minimum=0, name='observation')
-        self._state = 0
-        self._episode_ended = False
+        """
+        Must define self.observation_space and self.action_space here
+        """
+        # Define action space: bounds, space type, shape
 
-    def action_spec(self):
-        return self._action_spec
+        # Bound: Action_space is based on the number of servers +1. For this case, we set it to 4. (3 servers)
 
-    def observation_spec(self):
-        return self._observation_spec
+        self.max_choices = 4
+        self.count = 0
+        # Space type: Better to use Box than Discrete, since Discrete will lead to too many output nodes in NN
+        # Shape: rllib cannot handle scalar actions, so we turn it into a numpy array with shape (1,)
+        self.action_space = Box(low=np.array([0]), high=np.array([self.max_choices]))
 
-    def _reset(self):
-        self._state = 0
-        self._episode_ended = False
-        return ts.restart(np.array([self._state], dtype=np.int32))
+        # Bound: Observation_space
+        # input_h is the channel gain between the access point and device x (), assume we have 5 devices
+        # decisions is the choice made by the agent to decide the resource allocation of each device
+        # server_load = load of each server at the moment
+        # obs_low = np.zeros((self.obs_dim,))
 
-    def _step(self, action):
+        self.numServers = 3  # number of servers or base stations
 
-        if self._episode_ended:
-          # The last action ended the episode. Ignore the current action and start
-          # a new episode.
-          return self.reset()
+        self.observation_space = Dict(
+            {
+                'input_h': Box(low=np.full(5, -np.inf), high=np.full(5, np.inf), shape=(5,), dtype=np.float),
+                # 'decisions': spaces.Box(low =np.full(5, 0), high = np.full(5,4), shape = (5,), dtype = np.intc)
+                'server_load': Box(low=np.zeros(self.numServers), high=np.full(3, np.inf), shape=(3,), dtype=np.float)
+            })
 
-        # Make sure episodes don't go on forever.
-        if action == 1:
-          self._episode_ended = True
-        elif action == 0:
-          new_card = np.random.randint(1, 11)
-          self._state += new_card
-        else:
-          raise ValueError('`action` should be 0 or 1.')
+        self.current_obs = None
+        self.log = ''
 
-        if self._episode_ended or self._state >= 21:
-            reward = self._state - 21 if self._state <= 21 else -21
-            return ts.termination(np.array([self._state], dtype=np.int32), reward)
-        else:
-            return ts.transition(
-              np.array([self._state], dtype=np.int32), reward=0.0, discount=1.0)
+    def reset(self, next_input):
+        """
+        Returns: observation of the initial state
+        Reset environment to initial state so that a new episode independent of previous ones can start
+        We want to reset input_h to next set of input_h, rest to 0.
+        """
+        input_h = next_input
+        server_load = np.zeros(self.numServers)
+        # decisions = np.full(5,0)
+        self.current_obs = {
+            'input_h': input_h,
+            'server_load': server_load
+            # 'decisions': decisions
+        }
+        self.count = 0
+
+        return self.current_obs
+
+    def step(self, action):
+        """
+        Returns the next observation, reward, done and optinally additional info
+        """
+        # Action looks like np.array. convert to float for easier calculation.
+        print(self.count)
+        choice = random.choice(action)
+        print(f'Chosen choice: {choice}')
+        self.log += f'Chosen action: {choice}\n'
+
+        # Compute next observation
+        self.current_obs['server_load'][choice] += 1
+        next_obs = self.current_obs
+
+        # Compute reward
+        if self.count < 4:
+            reward = 0
+        if self.count == 4:
+            reward = self.current_obs['server_load'][0] * self.current_obs['input_h'][self.count] + \
+                     self.current_obs['server_load'][1] * self.current_obs['input_h'][self.count] + \
+                     self.current_obs['server_load'][2] * self.current_obs['input_h'][self.count]
+            print("reward", reward)
+        done = False
+        if self.count == 4:
+            done = True
+        self.count += 1
+        self.current_obs = next_obs
+        return self.current_obs, reward, done, {}
+
+    def render(self):
+        """
+        Show current environment state
+        Must be implemented, if not important, can have an empty implementation
+        """
+        pass
+
+    def close(self):  # optional
+        """
+        Used to clean up all resources. Optional
+        """
+        pass
+
+    def seed(self):  # optional
+        """
+        Used to set seeds for environment's RNG for obtaining deterministic behavior. Optional
+        """
+        return

@@ -32,7 +32,9 @@ import numpy as np  # import numpy
 # for tensorflow2
 from memoryTF2 import MemoryDNN
 from optimization import bisection
-
+from optimization import allocate_min
+from optimization import allocate_max
+from optimization import allocate_random
 import time
 
 
@@ -102,6 +104,9 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
+    maxvar = []
+    minvar = []
+    ranvar = []
     rate_his = []
     rate_his_ratio = []
     mode_his = []
@@ -127,20 +132,36 @@ if __name__ == "__main__":
             i_idx = i - n + num_test + split_idx
 
         h = channel[i_idx, :]
-        print('h:',h)
+        #print('h:',h)
         # the action selection must be either 'OP' or 'KNN'
         m_list = mem.decode(h, K, decoder_mode)
-        print("result of m_list that is being decoded:\n",m_list)
+        #print("result of m_list that is being decoded:\n",m_list)
 
         r_list = []
+        serverload = np.zeros((3))
         for m in m_list:
             r_list.append(bisection(h / 1000000, m)[0])
-            print("bisection:",bisection(h/1000000,m))
-        print("r_list:",r_list)
-        print("largest reward:", m_list)
-        print("largest reward:", m_list[np.argmax(r_list)])
+
+        arr = np.copy(bisection(h/1000000,m)[3])
+
+        minserver_allocation = allocate_min(arr,serverload)
+        ranserver_allocation = allocate_random(arr,serverload)
+        #The list of data offloading capacities of the WDs that we will use for computing variance
+        #print("arr,",arr)
+        #print('minserver_allocation',minserver_allocation)
+        #print("min var", np.var(minserver_allocation))
+
+        maxserver_allocation = allocate_max(arr,serverload)
+
+        #print('maxserver_allocation',maxserver_allocation)
+        #print("max var", np.var(maxserver_allocation))
+        minvar.append(np.var(minserver_allocation))
+        maxvar.append(np.var(maxserver_allocation))
+        ranvar.append(np.var(ranserver_allocation))
         # encode the mode with largest reward
         mem.encode(h, m_list[np.argmax(r_list)])
+        #print("Here",m_list[np.argmax(r_list)])
+        #print(channel[i])
         # the main code for DROO training ends here
 
         # the following codes store some interested metrics for illustrations
@@ -159,11 +180,14 @@ if __name__ == "__main__":
 
     print("Averaged normalized computation rate:", sum(rate_his_ratio[-num_test: -1]) / num_test)
     print('Total time consumed:%s' % total_time)
-    print('Average time per channel:%s' % (total_time / n))
-
+    print('Average min variance:%s' % (sum(minvar) / n))
+    print('Average max variance:%s' % (sum(maxvar) / n))
+    print('Average randomly selected variance:%s' % (sum(ranvar) / n))
     # save data into txt
     save_to_txt(k_idx_his, "k_idx_his.txt")
     save_to_txt(K_his, "K_his.txt")
     save_to_txt(mem.cost_his, "cost_his.txt")
     save_to_txt(rate_his_ratio, "rate_his_ratio.txt")
     save_to_txt(mode_his, "mode_his.txt")
+    save_to_txt(minvar, "minvar.txt")
+    save_to_txt(maxvar, "maxvar.txt")

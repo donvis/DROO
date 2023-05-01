@@ -8,30 +8,13 @@ import scipy.io as sio  # import scipy.io for .mat file
 # from utils import plotLearningCurve
 import matplotlib.pyplot as plt
 import tensorflow as tf
-
+from tf_agents.agents.dqn import dqn_agent
 from gym.wrappers import FlattenObservation
 from gym.spaces.utils import unflatten
 from gym.spaces.utils import flatten_space
 
 
-def knm(self, m, k=1):
-    # return k order-preserving binary actions
-    m_list = []
-    # generate the ﬁrst binary ofﬂoading decision with respect to equation (8)
-    m_list.append(1 * (m > 0.5))
-    if k > 1:
-        # generate the remaining K-1 binary ofﬂoading decisions with respect to equation (9)
-        m_abs = abs(m - 0.5)
-        idx_list = np.argsort(m_abs)[:k - 1]
-        for i in range(k - 1):
-            if m[idx_list[i]] > 0.5:
-                # set the \hat{x}_{t,(k-1)} to 0
-                m_list.append(1 * (m - m[idx_list[i]] > 0))
-            else:
-                # set the \hat{x}_{t,(k-1)} to 1
-                m_list.append(1 * (m - m[idx_list[i]] >= 0))
 
-    return m_list
 
 def make_observation_space():
     lower_obs_bound = {
@@ -58,6 +41,7 @@ if __name__ == '__main__':
     S = 3  # number of MEC servers
     input_h = sio.loadmat('./data/data_%d' % N)['input_h']  # channel input gain
     input_h *= 1000000
+
     episodes = len(input_h)  # number of episodes
     K = N  # initialize K = N
     decoder_mode = 'OP'  # the quantization mode could be 'OP' (Order-preserving) or 'KNN'

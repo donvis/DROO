@@ -23,7 +23,6 @@ class Env(Env):
             'input_h': input,
             'binary_matrix': np.zeros((N,S+1)),
             'server_load' : np.zeros(S+1)
-
         }
         return self.observations
 

@@ -64,9 +64,9 @@ class MemoryDNN:
         # replace the old memory with new memory
         idx = self.memory_counter % self.memory_size
         self.memory[idx, :] = np.hstack((h, m))
-        print("memory:",self.memory[idx,:])
+     #   print("memory:",self.memory[idx,:])
         self.memory_counter += 1
-        print("memory_counter:",self.memory_counter)
+     #   print("memory_counter:",self.memory_counter)
 
     def encode(self, h, m):
         # encoding the entry
@@ -98,11 +98,11 @@ class MemoryDNN:
 
     def decode(self, h, k, mode='OP'):
         # to have batch dimension when feed into tf placeholder
-        print("current h:", h)
+     #   print("current h:", h)
         h = h[np.newaxis, :]
-        print("current h:",h)
+     #   print("current h:",h)
         m_pred = self.model.predict(h)
-        print("current m prediction:",m_pred)
+      #  print("current m prediction:",m_pred)
 
         if mode is 'OP':
             return self.knm(m_pred[0], k)

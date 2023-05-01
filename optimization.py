@@ -9,8 +9,67 @@ from scipy import optimize
 from scipy.special import lambertw
 import scipy.io as sio                     # import scipy.io for .mat file I/
 import time
+import random
 
+def allocate_random(arr1, arr2):
+    # for the very first iteration, since all servers have no load,
+    # allocate resources to first server
+    while len(arr1) != 0:
+        arr2[random.randint(0,2)] +=arr1[0]
+        #print(templist)
+        #print(min_array)
+        arr1 = np.delete(arr1, [0])
+    return arr2
+def allocate_min(arr1, arr2):
+    # for the very first iteration, since all servers have no load,
+    # allocate resources to first server
+    if len(arr1) !=0:
+        arr2[0] += arr1[0]
+        arr1 = np.delete(arr1, [0])
+    # Do this until we iterate through all
+    while len(arr1) != 0:
+        tempvarlist = []
+        for i in range(len(arr2)):
+            templist = [np.copy(arr2), np.copy(arr2), np.copy(arr2)]
+            templist[i][i] += arr1[0]
+            tempvarlist.append(templist[i])
+        for i in range(len(tempvarlist)):
+            templist[i] = np.var(tempvarlist[i])
+            #print(templist)
+        min_var_element = min(templist)
+        min_array = np.where(templist == min_var_element)[0][0]
+        #print(templist)
+        #print(min_array)
+        arr2 = np.copy(tempvarlist[min_array])
+        #print(arr2)
+        arr1 = np.delete(arr1, [0])
+    return arr2
 
+def allocate_max(arr1, arr2):
+    # for the very first iteration, since all servers have no load,
+    # allocate resources to first server
+    if len(arr1) != 0:
+        arr2[0] += arr1[0]
+        arr1 = np.delete(arr1, [0])
+    # Do this until we iterate through all
+    while len(arr1) != 0:
+        tempvarlist = []
+        for i in range(len(arr2)):
+            templist = [np.copy(arr2), np.copy(arr2), np.copy(arr2)]
+            templist[i][i] += arr1[0]
+            tempvarlist.append(templist[i])
+        for i in range(len(tempvarlist)):
+            templist[i] = np.var(tempvarlist[i])
+            #print(templist)
+        max_var_element = max(templist)
+        max_array = np.where(templist == max_var_element)[0][0]
+        #print(templist)
+        #print(max_array)
+        arr2 = np.copy(tempvarlist[max_array])
+        #print(arr2)
+        arr1 = np.delete(arr1, [0])
+
+    return arr2
 def plot_gain( gain_his):
     import matplotlib.pyplot as plt
     import pandas as pd
@@ -48,9 +107,10 @@ def bisection(h, M, weights=[]):
     
     M0=np.where(M==0)[0]
     M1=np.where(M==1)[0]
-    
+    #print("m1",M1)
     hi=np.array([h[i] for i in M0])
     hj=np.array([h[i] for i in M1])
+    #print('hj',hj)
     
 
     if len(weights) == 0:
@@ -67,6 +127,11 @@ def bisection(h, M, weights=[]):
         for i in range(len(M1)):
             sum2+=wj[i]*epsilon*x[i+1]*np.log(1+eta2*hj[i]**2*x[0]/x[i+1])
         return sum1+sum2
+    def offloading_capacity_list(x):
+        list = []
+        for i in range(len(M1)):
+            list.append(wj[i]*epsilon*x[i+1]*np.log(1+eta2*hj[i]**2*x[0]/x[i+1]))
+        return list
 
     def phi(v, j):
         return 1/(-1-1/(lambertw(-1/(np.exp( 1 + v/wj[j]/epsilon))).real))
@@ -102,8 +167,8 @@ def bisection(h, M, weights=[]):
     x.append(p1(v))
     for j in range(len(M1)):
         x.append(tau(v, j))
-
-    return sum_rate(x), x[0], x[1:]
+    #print("x0,x1,",x[0],x[1:])
+    return sum_rate(x), x[0], x[1:], offloading_capacity_list(x)
 
 
 

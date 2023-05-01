@@ -3,66 +3,46 @@ import environment
 import gym
 import scipy.io as sio  # import scipy.io for .mat file
 import numpy as np
+from tensorflow import keras
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import load_model
+from tensorflow.keras import layers
 
+ENV_NAME = 'CartPole-v1'
 
-def make_observation_space():
-    lower_obs_bound = {
-        'input_h': - np.inf,
-        'offload_decision': 0
-    }
+env = gym.make(ENV_NAME)
+np.random.seed(123)
+env.seed(123)
+nb_actions = env.action_space.n
 
-    higher_obs_bound = {
-        'input_h': np.inf,
-        'offload_decision': 1
-    }
-    low = np.array([lower_obs_bound[o] for o in observations])
-    high = np.array([higher_obs_bound[o] for o in observations])
-    shape = (len(observations),)
-    return gym.spaces.Box(low, high, shape)
-if __name__ == "__main__":
-    '''
-        This algorithm generates K modes from DNN, and chooses with largest
-        reward. The mode with largest reward is stored in the memory, which is
-        further used to train the DNN.
-        Adaptive K is implemented. K = max(K, K_his[-memory_size])
-    '''
+# Next, we build a very simple model.
+model = keras.Sequential()
+model.add(Flatten(input_shape=(1,) + env.observation_space.shape))
+model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dense(nb_actions))
+model.add(Activation('linear'))
+print(model.summary())
 
-    #Episode ends when all users have determined to locally compute or offload computation task
+# Finally, we configure and compile our agent. You can use every built-in Keras optimizer and
+# even the metrics!
+memory = SequentialMemory(limit=5000, window_length=1)
+policy = BoltzmannQPolicy()
+dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
+               target_model_update=1e-2, policy=policy)
+dqn.compile(Adam(lr=1e-3), metrics=['mae'])
 
+# Okay, now it's time to learn something! We visualize the training here for show, but this
+# slows down training quite a lot. You can always safely abort the training prematurely using
+# Ctrl + C.
+dqn.fit(env, nb_steps=2500, visualize=True, verbose=2)
 
-    N = 10  # number of users
-    S = 3  # number of servers
-    input_h = sio.loadmat('./data/data_%d' % N)['input_h']  # State variable
-    episodes = len(input_h)  # number of episodes
-    K = 1  # initialize K = N
-    decoder_mode = 'OP'  # the quantization mode could be 'OP' (Order-preserving) or 'KNN'
-    Memory = 4096  # capacity of memory structure
-    Delta = 32  # Update interval for adaptive K
-    observations = {'input_h': None, # State variable
-                    'binary matrix': None # Action variable
+# After training is done, we save the final weights.
+dqn.save_weights('dqn_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
 
-                    }
-
-    '''
-        We create the number of actions based on the number of servers we have.
-        So if we have 3 servers, we will have 4 actions : {offload_to_0, offload_to_1, offload_to_2, offload_to_3}
-        where offloading to 0 is actually computing the task locally.
-    '''
-    actions = {}
-    for i in range(S+1):
-           key = i
-           value = f"offload_to_{i}"
-           actions[key] = value
-
-    action_space = gym.spaces.Discrete(len(actions)) # Create the action space based on how many actions we have
-    observation_space = make_observation_space()
-    print(actions)
-    env = environment.Env(N,input_h,action_space,observation_space)
-
-    # training loop for the environment
-    for i in range(episodes):
-        env.reset(input_h[i]) # resetting state, get a new set of input_h
-        #print(env.observation_space)
-
-
-    print(env.observation_space)
+# Finally, evaluate our algorithm for 5 episodes.
+dqn.test(Monitor(env, '.'), nb_episodes=5, visualize=True)
